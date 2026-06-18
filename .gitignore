@@ -1,0 +1,15 @@
+# Entornos, cachés y credenciales privadas
+.env
+__pycache__/
+
+# Archivos de estado temporal y registros
+*.json
+*.log
+
+# Bases de datos y memoria operativa (Protección de datos)
+*.csv
+
+# Modelos de Inteligencia Artificial (Protección de Propiedad Intelectual)
+*.zip
+*.pkl
+datasets/
