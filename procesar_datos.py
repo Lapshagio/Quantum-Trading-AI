@@ -32,11 +32,12 @@ def procesar_datos_smc(nombre_archivo):
         df["close"].shift(1) >= df["Ultimo_Low_Confirmado"]
     )
 
+    # --- VÁLVULA DE RIESGO ABIERTA (PERFIL AGRESIVO) ---
     df["Rotura_Alcista"] = (
-        rotura_alcista_cruda.rolling(window=8, min_periods=1).max().astype(float)
+        rotura_alcista_cruda.rolling(window=15, min_periods=1).max().astype(float)
     )
     df["Rotura_Bajista"] = (
-        rotura_bajista_cruda.rolling(window=8, min_periods=1).max().astype(float)
+        rotura_bajista_cruda.rolling(window=15, min_periods=1).max().astype(float)
     )
 
     print("Detectando Fair Value Gaps (FVG)...")
@@ -44,11 +45,12 @@ def procesar_datos_smc(nombre_archivo):
     fvg_bajista_crudo = df["high"] < df["low"].shift(2)
 
     df["FVG_Alcista"] = (
-        fvg_alcista_crudo.rolling(window=3, min_periods=1).max().astype(float)
+        fvg_alcista_crudo.rolling(window=8, min_periods=1).max().astype(float)
     )
     df["FVG_Bajista"] = (
-        fvg_bajista_crudo.rolling(window=3, min_periods=1).max().astype(float)
+        fvg_bajista_crudo.rolling(window=8, min_periods=1).max().astype(float)
     )
+    # ----------------------------------------------------
 
     df["Precio_Techo_FVG"] = np.where(
         fvg_alcista_crudo,
