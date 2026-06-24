@@ -222,7 +222,7 @@ def ejecutar_bot_en_vivo():
         modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
         print("Cerebro Recurrente LSTM cargado con éxito.")
     except:
-        print("Error: No se encontró 'modelo_smc_v6_lstm.zip'.")
+        print("Error: No se encontró 'modelo_smc_v8_lstm.zip'.")
         return
 
     exchange = ccxt.binance()
