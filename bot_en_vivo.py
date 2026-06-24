@@ -219,7 +219,7 @@ def ejecutar_bot_en_vivo():
     enviar_mensaje_telegram("🛡️ Sistema V7 Operativo (Perfil Agresivo 0.30 OBI).")
 
     try:
-        modelo = RecurrentPPO.load("modelo_smc_v6_lstm")
+        modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
         print("Cerebro Recurrente LSTM cargado con éxito.")
     except:
         print("Error: No se encontró 'modelo_smc_v6_lstm.zip'.")
