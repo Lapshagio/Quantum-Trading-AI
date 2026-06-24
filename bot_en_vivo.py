@@ -211,12 +211,12 @@ def ejecutar_bot_en_vivo():
     global posicion_abierta, precio_entrada, take_profit, stop_loss
     global estado_lstm, inicio_episodio
 
-    print(f"--- BOT QUANT V7 (LSTM + PERFIL TÁCTICO 0.30) ---")
+    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.30) ---")
 
     # Ejecutamos la carga inicial del escudo anti-fallos antes de conectar las API
     cargar_estado_seguro()
 
-    enviar_mensaje_telegram("🛡️ Sistema V7 Operativo (Perfil Agresivo 0.30 OBI).")
+    enviar_mensaje_telegram("🛡️ Sistema V8 Operativo (Perfil Agresivo 0.30 OBI).")
 
     try:
         modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
