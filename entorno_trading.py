@@ -43,7 +43,7 @@ class EntornoTradingSMC(gym.Env):
                 float(fila["Rotura_Alcista_1h"]),
                 float(fila["Rotura_Bajista_1h"]),
                 float(fila["Sesion_NY"]),
-                float(atr_normalizado),  # <--- Nueva Dimensión: Volatilidad
+                float(atr_normalizado),
                 float(self.posicion_abierta),
             ],
             dtype=np.float32,
@@ -68,13 +68,13 @@ class EntornoTradingSMC(gym.Env):
             if self.tipo_posicion == 1:
                 if fila["low"] <= self.precio_sl:
                     self.balance -= riesgo_dolares
-                    recompensa = -1.0
+                    recompensa = -1.0  # Castigo estricto de 1R
                     self.posicion_abierta = False
                     self.trades_totales += 1
                     self.trades_perdidos += 1
                 elif fila["high"] >= self.precio_tp:
                     self.balance += beneficio_dolares
-                    recompensa = 5.0
+                    recompensa = 2.0  # Premio exacto de 2R
                     self.posicion_abierta = False
                     self.trades_totales += 1
                     self.trades_ganados += 1
@@ -82,13 +82,13 @@ class EntornoTradingSMC(gym.Env):
             elif self.tipo_posicion == 2:
                 if fila["high"] >= self.precio_sl:
                     self.balance -= riesgo_dolares
-                    recompensa = -1.0
+                    recompensa = -1.0  # Castigo estricto de 1R
                     self.posicion_abierta = False
                     self.trades_totales += 1
                     self.trades_perdidos += 1
                 elif fila["low"] <= self.precio_tp:
                     self.balance += beneficio_dolares
-                    recompensa = 5.0
+                    recompensa = 2.0  # Premio exacto de 2R
                     self.posicion_abierta = False
                     self.trades_totales += 1
                     self.trades_ganados += 1
@@ -96,44 +96,44 @@ class EntornoTradingSMC(gym.Env):
         else:
             if action == 1 and fila["FVG_Alcista"] and fila["Sesion_NY"]:
                 recompensa = (
-                    2.0
-                    if fila["Rotura_Alcista_1h"] == 1.0
-                    else (-2.0 if fila["Rotura_Bajista_1h"] == 1.0 else 0.5)
+                    0.0  # CERO recompensa por entrar. El premio está en la salida.
                 )
                 self.posicion_abierta = True
                 self.tipo_posicion = 1
                 self.precio_entrada = fila["close"]
-                self.precio_sl = self.precio_entrada - (1.5 * atr_actual)  # SL Dinámico
-                self.precio_tp = self.precio_entrada + (3.0 * atr_actual)  # TP Dinámico
+                self.precio_sl = self.precio_entrada - (1.5 * atr_actual)
+                self.precio_tp = self.precio_entrada + (3.0 * atr_actual)
 
             elif action == 2 and fila["FVG_Bajista"] and fila["Sesion_NY"]:
                 recompensa = (
-                    2.0
-                    if fila["Rotura_Bajista_1h"] == 1.0
-                    else (-2.0 if fila["Rotura_Alcista_1h"] == 1.0 else 0.5)
+                    0.0  # CERO recompensa por entrar. El premio está en la salida.
                 )
                 self.posicion_abierta = True
                 self.tipo_posicion = 2
                 self.precio_entrada = fila["close"]
-                self.precio_sl = self.precio_entrada + (1.5 * atr_actual)  # SL Dinámico
-                self.precio_tp = self.precio_entrada - (3.0 * atr_actual)  # TP Dinámico
+                self.precio_sl = self.precio_entrada + (1.5 * atr_actual)
+                self.precio_tp = self.precio_entrada - (3.0 * atr_actual)
 
             elif action in [1, 2]:
-                recompensa = -1.0
+                recompensa = (
+                    -1.0
+                )  # Castigo duro por inventarse operaciones fuera de SMC
             elif (
                 action == 0
                 and (fila["FVG_Alcista"] or fila["FVG_Bajista"])
                 and fila["Sesion_NY"]
             ):
-                recompensa = -1.0
+                recompensa = (
+                    -0.5
+                )  # Castigo leve por cobardía (no entrar cuando hay un setup válido)
             elif action == 0:
-                recompensa = -0.01
+                recompensa = 0.0  # Quedarse fuera cuando no hay nada es perfecto. Sin penalización.
 
         self.paso_actual += 1
         terminado = self.paso_actual >= self.max_pasos
         if self.balance <= 0:
             terminado = True
-            recompensa = -100.0
+            recompensa = -100.0  # Castigo masivo por quemar la cuenta de fondeo
 
         info = {
             "balance": self.balance,
