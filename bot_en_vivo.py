@@ -325,7 +325,7 @@ def ejecutar_bot_en_vivo():
                         observacion,
                         state=estado_lstm,
                         episode_start=inicio_episodio,
-                        deterministic=True,
+                        deterministic=False,
                     )
                     inicio_episodio = np.zeros((1,), dtype=bool)
 
