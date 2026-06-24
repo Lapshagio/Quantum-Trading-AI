@@ -63,13 +63,17 @@ def procesar_datos_smc(nombre_archivo):
         np.where(fvg_bajista_crudo, df["high"], np.nan),
     )
 
-    print("Añadiendo el filtro de volumen institucional (NY Session)...")
+    print("Añadiendo el filtro de volumen institucional (Londres + NY Session)...")
     if pd.api.types.is_numeric_dtype(df["timestamp"]):
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     else:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-    df["Sesion_NY"] = df["timestamp"].dt.hour.isin([13, 14, 15, 16, 17])
+    # --- CORRECCIÓN DE HORARIO (Desde las 07:00 hasta las 17:00 UTC) ---
+    df["Sesion_NY"] = df["timestamp"].dt.hour.isin(
+        [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    )
+    # -------------------------------------------------------------------
 
     # ==========================================
     # 7. GESTIÓN DE RIESGO DINÁMICA (ATR)
