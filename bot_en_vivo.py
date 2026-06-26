@@ -17,7 +17,6 @@ from dotenv import load_dotenv  # <-- NUEVA LIBRERÍA DE SEGURIDAD
 
 load_dotenv()
 
-
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -121,7 +120,7 @@ def enviar_estadisticas():
         rendimiento_total = df["Porcentaje_Neto"].sum()
 
         reporte = (
-            f"📈 --- REPORTE DE RENDIMIENTO V7 (LSTM) --- 📈\n\n"
+            f"📈 --- REPORTE DE RENDIMIENTO V8 (LSTM) --- 📈\n\n"
             f"🔄 Operaciones Totales: {total_trades}\n"
             f"✅ Operaciones Ganadas: {ganados}\n"
             f"❌ Operaciones Perdidas: {perdidos}\n"
@@ -211,18 +210,18 @@ def ejecutar_bot_en_vivo():
     global posicion_abierta, precio_entrada, take_profit, stop_loss
     global estado_lstm, inicio_episodio
 
-    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.30) ---")
+    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.25) ---")
 
     # Ejecutamos la carga inicial del escudo anti-fallos antes de conectar las API
     cargar_estado_seguro()
 
-    enviar_mensaje_telegram("🛡️ Sistema V8 Operativo (Perfil Agresivo 0.30 OBI).")
+    enviar_mensaje_telegram("🛡️ Sistema V8 Operativo (Perfil Conservador 0.25 ODI).")
 
     try:
         modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
         print("Cerebro Recurrente LSTM cargado con éxito.")
     except:
-        print("Error: No se encontró 'modelo_smc_v8_lstm.zip'.")
+        print("Error: No se encontró 'modelo_smc_v8_lstm_agresivo.zip'.")
         return
 
     exchange = ccxt.binance()
@@ -333,7 +332,8 @@ def ejecutar_bot_en_vivo():
                         imbalance = analizar_order_book(exchange, SIMBOLO)
 
                         if accion == 1:
-                            if imbalance < -0.30:
+                            # Ajuste de barrera de entrada a 0.25 (Compras)
+                            if imbalance < -0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de ventas detectado ({imbalance:.2f}). Compra Abortada."
                                 )
@@ -348,11 +348,12 @@ def ejecutar_bot_en_vivo():
                                 stop_loss = precio_entrada - (1.5 * atr_actual)
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🟢 [COMPRA V7]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
+                                    f"🟢 [COMPRA V8]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
                                 )
 
                         elif accion == 2:
-                            if imbalance > 0.30:
+                            # Ajuste de barrera de entrada a 0.25 (Ventas)
+                            if imbalance > 0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de compras detectado ({imbalance:.2f}). Venta Abortada."
                                 )
@@ -367,7 +368,7 @@ def ejecutar_bot_en_vivo():
                                 stop_loss = precio_entrada + (1.5 * atr_actual)
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🔴 [VENTA V7]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
+                                    f"🔴 [VENTA V8]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
                                 )
 
                     if accion == 0:
