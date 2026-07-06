@@ -230,7 +230,7 @@ def ejecutar_bot_en_vivo():
     while True:
         try:
             velas_15m = exchange.fetch_ohlcv(SIMBOLO, "15m", limit=100)
-            velas_1h = exchange.fetch_ohlcv(SIMBOLO, "1h", limit=50)
+            velas_1h = exchange.fetch_ohlcv(SIMBOLO, "1h", limit=250)
 
             df_15m = pd.DataFrame(
                 velas_15m,
@@ -331,14 +331,27 @@ def ejecutar_bot_en_vivo():
                     if accion in [1, 2]:
                         imbalance = analizar_order_book(exchange, SIMBOLO)
 
+                        # Calculamos la tendencia macro (EMA 200 en 1H)
+                        df_1h["EMA_200"] = (
+                            df_1h["close"].ewm(span=200, adjust=False).mean()
+                        )
+                        ema_200 = df_1h.iloc[-1]["EMA_200"]
+
                         if accion == 1:
-                            # Ajuste de barrera de entrada a 0.25 (Compras)
-                            if imbalance < -0.25:
+                            if precio_actual < ema_200:
+                                print(
+                                    f"⚠️ [Filtro Macro] Tendencia bajista detectada (Precio debajo EMA 200). Compra abortada."
+                                )
+                                enviar_mensaje_telegram(
+                                    f"⚠️ [Filtro Macro] La IA quería comprar, pero la EMA 200 de 1H indica tendencia bajista. Operación cancelada."
+                                )
+                                accion = 0
+                            elif imbalance < -0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de ventas detectado ({imbalance:.2f}). Compra Abortada."
                                 )
                                 enviar_mensaje_telegram(
-                                    f"⚠️ [Hard Gate] La IA quería comprar, pero el Nivel 2 detectó ballenas vendiendo (OBI: {imbalance:.2f}). Operación cancelada por seguridad."
+                                    f"⚠️ [Hard Gate] Nivel 2 detectó ballenas vendiendo (OBI: {imbalance:.2f}). Operación cancelada."
                                 )
                                 accion = 0
                             else:
@@ -352,13 +365,20 @@ def ejecutar_bot_en_vivo():
                                 )
 
                         elif accion == 2:
-                            # Ajuste de barrera de entrada a 0.25 (Ventas)
-                            if imbalance > 0.25:
+                            if precio_actual > ema_200:
+                                print(
+                                    f"⚠️ [Filtro Macro] Tendencia alcista detectada (Precio encima EMA 200). Venta abortada."
+                                )
+                                enviar_mensaje_telegram(
+                                    f"⚠️ [Filtro Macro] La IA quería vender, pero la EMA 200 de 1H indica tendencia alcista. Operación cancelada."
+                                )
+                                accion = 0
+                            elif imbalance > 0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de compras detectado ({imbalance:.2f}). Venta Abortada."
                                 )
                                 enviar_mensaje_telegram(
-                                    f"⚠️ [Hard Gate] La IA quería vender, pero el Nivel 2 detectó acumulación de compras (OBI: {imbalance:.2f}). Operación cancelada por seguridad."
+                                    f"⚠️ [Hard Gate] Nivel 2 detectó acumulación de compras (OBI: {imbalance:.2f}). Operación cancelada."
                                 )
                                 accion = 0
                             else:
