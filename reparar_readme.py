@@ -1,4 +1,7 @@
-# 🚀 Quantum Trading AI (Cerebro V8)
+# Script temporal para generar el README.md con el formato perfecto
+import os
+
+contenido_readme = """# 🚀 Quantum Trading AI (Cerebro V8)
 
 Un sistema de trading algorítmico de grado institucional que fusiona **Smart Money Concepts (SMC)** con **Deep Reinforcement Learning (LSTM)**. Diseñado para operar de forma autónoma, el sistema filtra el "ruido" del mercado aplicando confluencias técnicas, análisis de liquidez en Nivel 2 (Order Book) y ejecución automatizada en MetaTrader 5.
 
@@ -77,3 +80,14 @@ python bot_en_vivo.py
 ## ⚠️ Descargo de Responsabilidad (Disclaimer)
 
 Este proyecto tiene fines estrictamente **educativos y de investigación en Ingeniería de Software y Data Science**. El código proporcionado NO es un consejo financiero. Operar en los mercados financieros (Forex, Criptomonedas, Futuros) conlleva un alto nivel de riesgo. El creador de este repositorio no se hace responsable de las pérdidas financieras que puedan derivarse del uso de este software en cuentas con dinero real. Se recomienda encarecidamente utilizarlo únicamente en entornos de simulación (Demo) o Forward Testing.
+"""
+
+# Escribir el archivo con codificación UTF-8 para evitar problemas de caracteres
+try:
+    with open("README.md", "w", encoding="utf-8") as f:
+        f.write(contenido_readme)
+    print(
+        "✅ ¡Éxito! Archivo README.md regenerado perfectamente. El portapapeles ha sido derrotado."
+    )
+except Exception as e:
+    print(f"❌ Error al escribir el archivo: {e}")
