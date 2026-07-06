@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 from sb3_contrib import RecurrentPPO
 from procesar_datos import procesar_datos_smc
 import threading
-from dotenv import load_dotenv  # <-- NUEVA LIBRERÍA DE SEGURIDAD
+from dotenv import load_dotenv
+
+# Importamos nuestro inyector de MetaTrader 5
+import puente_mt5
 
 # ==========================================
 # ⚙️ CONFIGURACIÓN Y VARIABLES DE CONTROL
@@ -19,8 +22,14 @@ load_dotenv()
 
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
 CHAT_ID = os.getenv("CHAT_ID")
+MT5_LOGIN = os.getenv("MT5_LOGIN")
+MT5_PASSWORD = os.getenv("MT5_PASSWORD")
+MT5_SERVER = os.getenv("MT5_SERVER")
 
-SIMBOLO = "BTC/USDT"
+SIMBOLO_BINANCE = "BTC/USDT"  # Para descargar datos
+SIMBOLO_MT5 = "BTCUSD"  # Para enviar órdenes al broker
+VOLUMEN_LOTES = 0.01  # Lotes para la prueba Demo
+
 ARCHIVO_HISTORIAL = "historial_trades.csv"
 ARCHIVO_ESTADO = "estado_posicion.json"
 
@@ -36,7 +45,7 @@ inicio_episodio = np.ones((1,), dtype=bool)
 
 
 # ==========================================
-# 💾 SISTEMA DE PERSISTENCIA DE ESTADO (RAM a DISCO)
+# 💾 SISTEMA DE PERSISTENCIA DE ESTADO
 # ==========================================
 def cargar_estado_seguro():
     """Recupera el estado del trade si el script o el PC se reinician"""
@@ -120,7 +129,7 @@ def enviar_estadisticas():
         rendimiento_total = df["Porcentaje_Neto"].sum()
 
         reporte = (
-            f"📈 --- REPORTE DE RENDIMIENTO V8 (LSTM) --- 📈\n\n"
+            f"📈 --- REPORTE DE RENDIMIENTO V8 (LSTM + MT5) --- 📈\n\n"
             f"🔄 Operaciones Totales: {total_trades}\n"
             f"✅ Operaciones Ganadas: {ganados}\n"
             f"❌ Operaciones Perdidas: {perdidos}\n"
@@ -141,13 +150,10 @@ def analizar_order_book(exchange, simbolo):
         volumen_asks = sum(
             [precio * cantidad for precio, cantidad in order_book["asks"]]
         )
-
         volumen_total = volumen_bids + volumen_asks
         if volumen_total == 0:
             return 0.0
-
-        imbalance = (volumen_bids - volumen_asks) / volumen_total
-        return imbalance
+        return (volumen_bids - volumen_asks) / volumen_total
     except Exception as e:
         print(f"Error escaneando el Order Book: {e}")
         return 0.0
@@ -173,7 +179,7 @@ def revisar_comandos_telegram():
                         elif texto in ["/estado", "estado"]:
                             if posicion_abierta == 0:
                                 enviar_mensaje_telegram(
-                                    "💤 Estado: Evaluando Memoria LSTM y Muros de Liquidez Nivel 2..."
+                                    "💤 Estado: Evaluando Memoria LSTM y Escudos..."
                                 )
                             else:
                                 tipo_txt = (
@@ -210,12 +216,21 @@ def ejecutar_bot_en_vivo():
     global posicion_abierta, precio_entrada, take_profit, stop_loss
     global estado_lstm, inicio_episodio
 
-    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.25) ---")
-
-    # Ejecutamos la carga inicial del escudo anti-fallos antes de conectar las API
+    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.25 + MT5) ---")
     cargar_estado_seguro()
 
-    enviar_mensaje_telegram("🛡️ Sistema V8 Operativo (Perfil Conservador 0.25 ODI).")
+    # CONEXIÓN A METATRADER 5
+    if not MT5_LOGIN or not MT5_PASSWORD or not MT5_SERVER:
+        print("❌ CRÍTICO: Faltan credenciales de MT5 en el archivo .env")
+        return
+
+    if not puente_mt5.conectar_mt5(int(MT5_LOGIN), MT5_PASSWORD, MT5_SERVER):
+        enviar_mensaje_telegram("❌ CRÍTICO: El bot no pudo conectar con MetaTrader 5.")
+        return
+
+    enviar_mensaje_telegram(
+        "🛡️ Sistema V8 Operativo (Perfil Conservador 0.25). Conectado a MT5 ✅"
+    )
 
     try:
         modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
@@ -229,8 +244,10 @@ def ejecutar_bot_en_vivo():
 
     while True:
         try:
-            velas_15m = exchange.fetch_ohlcv(SIMBOLO, "15m", limit=100)
-            velas_1h = exchange.fetch_ohlcv(SIMBOLO, "1h", limit=250)
+            velas_15m = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "15m", limit=100)
+            velas_1h = exchange.fetch_ohlcv(
+                SIMBOLO_BINANCE, "1h", limit=250
+            )  # Limit 250 para EMA200
 
             df_15m = pd.DataFrame(
                 velas_15m,
@@ -245,6 +262,8 @@ def ejecutar_bot_en_vivo():
             precio_actual = float(df_15m.iloc[-1]["close"])
 
             # ---- GESTIÓN OPERATIVA EN MEMORIA RAM ----
+            # En la versión final, MT5 gestiona el TP y SL automáticamente,
+            # pero mantenemos el seguimiento por Telegram aquí.
             if posicion_abierta != 0:
                 if posicion_abierta == 1:  # LONG
                     if precio_actual >= take_profit:
@@ -329,7 +348,7 @@ def ejecutar_bot_en_vivo():
                     inicio_episodio = np.zeros((1,), dtype=bool)
 
                     if accion in [1, 2]:
-                        imbalance = analizar_order_book(exchange, SIMBOLO)
+                        imbalance = analizar_order_book(exchange, SIMBOLO_BINANCE)
 
                         # Calculamos la tendencia macro (EMA 200 en 1H)
                         df_1h["EMA_200"] = (
@@ -359,9 +378,19 @@ def ejecutar_bot_en_vivo():
                                 precio_entrada = precio_actual
                                 take_profit = precio_entrada + (3.0 * atr_actual)
                                 stop_loss = precio_entrada - (1.5 * atr_actual)
+
+                                # INYECCIÓN A METATRADER 5
+                                ticket = puente_mt5.abrir_orden(
+                                    SIMBOLO_MT5,
+                                    "COMPRA",
+                                    VOLUMEN_LOTES,
+                                    stop_loss,
+                                    take_profit,
+                                )
+
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🟢 [COMPRA V8]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
+                                    f"🟢 [COMPRA MT5]\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
                                 )
 
                         elif accion == 2:
@@ -386,9 +415,19 @@ def ejecutar_bot_en_vivo():
                                 precio_entrada = precio_actual
                                 take_profit = precio_entrada - (3.0 * atr_actual)
                                 stop_loss = precio_entrada + (1.5 * atr_actual)
+
+                                # INYECCIÓN A METATRADER 5
+                                ticket = puente_mt5.abrir_orden(
+                                    SIMBOLO_MT5,
+                                    "VENTA",
+                                    VOLUMEN_LOTES,
+                                    stop_loss,
+                                    take_profit,
+                                )
+
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🔴 [VENTA V8]\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}\n⚖️ OBI Favor: {imbalance:.2f}"
+                                    f"🔴 [VENTA MT5]\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
                                 )
 
                     if accion == 0:
