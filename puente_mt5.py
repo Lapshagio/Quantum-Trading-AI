@@ -19,48 +19,33 @@ def conectar_mt5(login, password, server):
 def abrir_orden(simbolo, tipo, volumen, sl, tp):
     """Envía la orden de compra/venta con SL y TP al broker"""
 
+    # --- TRADUCTOR AUTOMÁTICO DE SÍMBOLO ---
+    # Ignoramos el nombre de Binance y forzamos el nombre exacto de este broker
+    simbolo_broker = "BTC"
+
     # 1. Preparamos el símbolo en MT5
-    symbol_info = mt5.symbol_info(simbolo)
+    symbol_info = mt5.symbol_info(simbolo_broker)
     if symbol_info is None:
-        print(f"❌ Símbolo '{simbolo}' no encontrado en MT5.")
-        # Sistema de escaneo automático para ayudar al usuario
-        simbolos_totales = mt5.symbols_get()
-        if simbolos_totales:
-            alternativas = [
-                s.name
-                for s in simbolos_totales
-                if "BTC" in s.name.upper() or "BITCOIN" in s.name.upper()
-            ]
-            if alternativas:
-                print(
-                    f"💡 Símbolos de Bitcoin detectados en este broker: {alternativas}"
-                )
-                print(
-                    f"👉 Acción requerida: Abre 'bot_en_vivo.py' y cambia la variable SIMBOLO_MT5 por una de las opciones de arriba."
-                )
-            else:
-                print(
-                    "❌ El broker actual no ofrece trading de Bitcoin en esta cuenta Demo específica."
-                )
+        print(f"❌ Símbolo '{simbolo_broker}' no encontrado en MT5.")
         return None
 
     if not symbol_info.visible:
-        if not mt5.symbol_select(simbolo, True):
-            print(f"❌ No se pudo hacer visible el símbolo {simbolo}.")
+        if not mt5.symbol_select(simbolo_broker, True):
+            print(f"❌ No se pudo hacer visible el símbolo {simbolo_broker}.")
             return None
 
     # 2. Definimos si es Compra o Venta
     if tipo == "COMPRA":
         order_type = mt5.ORDER_TYPE_BUY
-        precio_ejecucion = mt5.symbol_info_tick(simbolo).ask
+        precio_ejecucion = mt5.symbol_info_tick(simbolo_broker).ask
     else:
         order_type = mt5.ORDER_TYPE_SELL
-        precio_ejecucion = mt5.symbol_info_tick(simbolo).bid
+        precio_ejecucion = mt5.symbol_info_tick(simbolo_broker).bid
 
     # 3. Empaquetamos la orden
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
-        "symbol": simbolo,
+        "symbol": simbolo_broker,
         "volume": float(volumen),
         "type": order_type,
         "price": precio_ejecucion,
