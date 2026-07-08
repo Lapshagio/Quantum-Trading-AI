@@ -21,7 +21,7 @@ def abrir_orden(simbolo, tipo, volumen, sl, tp):
 
     # --- TRADUCTOR AUTOMÁTICO DE SÍMBOLO ---
     # Ignoramos el nombre de Binance y forzamos el nombre exacto de este broker
-    simbolo_broker = "BTC"
+    simbolo_broker = "BTCUSD"
 
     # 1. Preparamos el símbolo en MT5
     symbol_info = mt5.symbol_info(simbolo_broker)
