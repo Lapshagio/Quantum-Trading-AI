@@ -377,9 +377,9 @@ def ejecutar_bot_en_vivo():
                                 posicion_abierta = 1
                                 precio_entrada = precio_actual
 
-                                # CALIBRACIÓN V9: RR más equilibrado (1:1.5) y Stop Loss más amplio para evitar barridas por ruido
+                                # CALIBRACIÓN V9.1: RR estricto 1:2 y EMA 50 para agilidad macro
                                 take_profit = precio_entrada + (3.0 * atr_actual)
-                                stop_loss = precio_entrada - (2.0 * atr_actual)
+                                stop_loss = precio_entrada - (1.5 * atr_actual)
 
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
@@ -416,9 +416,9 @@ def ejecutar_bot_en_vivo():
                                 posicion_abierta = 2
                                 precio_entrada = precio_actual
 
-                                # CALIBRACIÓN V9: RR más equilibrado (1:1.5) y Stop Loss más amplio para evitar barridas por ruido
+                                # CALIBRACIÓN V9.1: RR estricto 1:2 y EMA 50 para agilidad macro
                                 take_profit = precio_entrada - (3.0 * atr_actual)
-                                stop_loss = precio_entrada + (2.0 * atr_actual)
+                                stop_loss = precio_entrada + (1.5 * atr_actual)
 
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
