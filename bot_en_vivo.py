@@ -247,7 +247,7 @@ def ejecutar_bot_en_vivo():
             velas_15m = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "15m", limit=100)
             velas_1h = exchange.fetch_ohlcv(
                 SIMBOLO_BINANCE, "1h", limit=250
-            )  # Limit 250 para EMA200
+            )  # Limit 250 para tener datos suficientes para EMAs largas
 
             df_15m = pd.DataFrame(
                 velas_15m,
@@ -350,19 +350,19 @@ def ejecutar_bot_en_vivo():
                     if accion in [1, 2]:
                         imbalance = analizar_order_book(exchange, SIMBOLO_BINANCE)
 
-                        # Calculamos la tendencia macro (EMA 200 en 1H)
-                        df_1h["EMA_200"] = (
-                            df_1h["close"].ewm(span=200, adjust=False).mean()
+                        # CALIBRACIÓN V9: EMA 50 en lugar de EMA 200 para reaccionar más rápido a la tendencia
+                        df_1h["EMA_50"] = (
+                            df_1h["close"].ewm(span=50, adjust=False).mean()
                         )
-                        ema_200 = df_1h.iloc[-1]["EMA_200"]
+                        ema_50 = df_1h.iloc[-1]["EMA_50"]
 
                         if accion == 1:
-                            if precio_actual < ema_200:
+                            if precio_actual < ema_50:
                                 print(
-                                    f"⚠️ [Filtro Macro] Tendencia bajista detectada (Precio debajo EMA 200). Compra abortada."
+                                    f"⚠️ [Filtro Macro] Tendencia bajista detectada (Precio debajo EMA 50 de 1H). Compra abortada."
                                 )
                                 enviar_mensaje_telegram(
-                                    f"⚠️ [Filtro Macro] La IA quería comprar, pero la EMA 200 de 1H indica tendencia bajista. Operación cancelada."
+                                    f"⚠️ [Filtro Macro] La IA quería comprar, pero la EMA 50 de 1H indica tendencia bajista. Operación cancelada."
                                 )
                                 accion = 0
                             elif imbalance < -0.25:
@@ -376,8 +376,10 @@ def ejecutar_bot_en_vivo():
                             else:
                                 posicion_abierta = 1
                                 precio_entrada = precio_actual
+
+                                # CALIBRACIÓN V9: RR más equilibrado (1:1.5) y Stop Loss más amplio para evitar barridas por ruido
                                 take_profit = precio_entrada + (3.0 * atr_actual)
-                                stop_loss = precio_entrada - (1.5 * atr_actual)
+                                stop_loss = precio_entrada - (2.0 * atr_actual)
 
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
@@ -394,12 +396,12 @@ def ejecutar_bot_en_vivo():
                                 )
 
                         elif accion == 2:
-                            if precio_actual > ema_200:
+                            if precio_actual > ema_50:
                                 print(
-                                    f"⚠️ [Filtro Macro] Tendencia alcista detectada (Precio encima EMA 200). Venta abortada."
+                                    f"⚠️ [Filtro Macro] Tendencia alcista detectada (Precio encima EMA 50 de 1H). Venta abortada."
                                 )
                                 enviar_mensaje_telegram(
-                                    f"⚠️ [Filtro Macro] La IA quería vender, pero la EMA 200 de 1H indica tendencia alcista. Operación cancelada."
+                                    f"⚠️ [Filtro Macro] La IA quería vender, pero la EMA 50 de 1H indica tendencia alcista. Operación cancelada."
                                 )
                                 accion = 0
                             elif imbalance > 0.25:
@@ -413,8 +415,10 @@ def ejecutar_bot_en_vivo():
                             else:
                                 posicion_abierta = 2
                                 precio_entrada = precio_actual
+
+                                # CALIBRACIÓN V9: RR más equilibrado (1:1.5) y Stop Loss más amplio para evitar barridas por ruido
                                 take_profit = precio_entrada - (3.0 * atr_actual)
-                                stop_loss = precio_entrada + (1.5 * atr_actual)
+                                stop_loss = precio_entrada + (2.0 * atr_actual)
 
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
