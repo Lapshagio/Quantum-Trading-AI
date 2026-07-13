@@ -216,7 +216,7 @@ def ejecutar_bot_en_vivo():
     global posicion_abierta, precio_entrada, take_profit, stop_loss
     global estado_lstm, inicio_episodio
 
-    print(f"--- BOT QUANT V8 (LSTM + PERFIL TÁCTICO 0.25 + MT5) ---")
+    print(f"--- BOT QUANT V8.2 (Puro LSTM Direccional + MT5) ---")
     cargar_estado_seguro()
 
     # CONEXIÓN A METATRADER 5
@@ -229,7 +229,7 @@ def ejecutar_bot_en_vivo():
         return
 
     enviar_mensaje_telegram(
-        "🛡️ Sistema V8 Operativo (Perfil Conservador 0.25). Conectado a MT5 ✅"
+        "🛡️ Sistema V8.2 Operativo (Sin filtro Macro). Conectado a MT5 ✅"
     )
 
     try:
@@ -245,9 +245,7 @@ def ejecutar_bot_en_vivo():
     while True:
         try:
             velas_15m = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "15m", limit=100)
-            velas_1h = exchange.fetch_ohlcv(
-                SIMBOLO_BINANCE, "1h", limit=250
-            )  # Limit 250 para tener datos suficientes para EMAs largas
+            velas_1h = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "1h", limit=250)
 
             df_15m = pd.DataFrame(
                 velas_15m,
@@ -262,8 +260,6 @@ def ejecutar_bot_en_vivo():
             precio_actual = float(df_15m.iloc[-1]["close"])
 
             # ---- GESTIÓN OPERATIVA EN MEMORIA RAM ----
-            # En la versión final, MT5 gestiona el TP y SL automáticamente,
-            # pero mantenemos el seguimiento por Telegram aquí.
             if posicion_abierta != 0:
                 if posicion_abierta == 1:  # LONG
                     if precio_actual >= take_profit:
@@ -350,22 +346,8 @@ def ejecutar_bot_en_vivo():
                     if accion in [1, 2]:
                         imbalance = analizar_order_book(exchange, SIMBOLO_BINANCE)
 
-                        # CALIBRACIÓN V9: EMA 50 en lugar de EMA 200 para reaccionar más rápido a la tendencia
-                        df_1h["EMA_50"] = (
-                            df_1h["close"].ewm(span=50, adjust=False).mean()
-                        )
-                        ema_50 = df_1h.iloc[-1]["EMA_50"]
-
                         if accion == 1:
-                            if precio_actual < ema_50:
-                                print(
-                                    f"⚠️ [Filtro Macro] Tendencia bajista detectada (Precio debajo EMA 50 de 1H). Compra abortada."
-                                )
-                                enviar_mensaje_telegram(
-                                    f"⚠️ [Filtro Macro] La IA quería comprar, pero la EMA 50 de 1H indica tendencia bajista. Operación cancelada."
-                                )
-                                accion = 0
-                            elif imbalance < -0.25:
+                            if imbalance < -0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de ventas detectado ({imbalance:.2f}). Compra Abortada."
                                 )
@@ -377,7 +359,7 @@ def ejecutar_bot_en_vivo():
                                 posicion_abierta = 1
                                 precio_entrada = precio_actual
 
-                                # CALIBRACIÓN V9.1: RR estricto 1:2 y EMA 50 para agilidad macro
+                                # CALIBRACIÓN V9.2: RR estricto 1:2 sin Filtro Macro (Puro LSTM)
                                 take_profit = precio_entrada + (3.0 * atr_actual)
                                 stop_loss = precio_entrada - (1.5 * atr_actual)
 
@@ -396,15 +378,7 @@ def ejecutar_bot_en_vivo():
                                 )
 
                         elif accion == 2:
-                            if precio_actual > ema_50:
-                                print(
-                                    f"⚠️ [Filtro Macro] Tendencia alcista detectada (Precio encima EMA 50 de 1H). Venta abortada."
-                                )
-                                enviar_mensaje_telegram(
-                                    f"⚠️ [Filtro Macro] La IA quería vender, pero la EMA 50 de 1H indica tendencia alcista. Operación cancelada."
-                                )
-                                accion = 0
-                            elif imbalance > 0.25:
+                            if imbalance > 0.25:
                                 print(
                                     f"⚠️ [Hard Gate] Muro de compras detectado ({imbalance:.2f}). Venta Abortada."
                                 )
@@ -416,7 +390,7 @@ def ejecutar_bot_en_vivo():
                                 posicion_abierta = 2
                                 precio_entrada = precio_actual
 
-                                # CALIBRACIÓN V9.1: RR estricto 1:2 y EMA 50 para agilidad macro
+                                # CALIBRACIÓN V9.2: RR estricto 1:2 sin Filtro Macro (Puro LSTM)
                                 take_profit = precio_entrada - (3.0 * atr_actual)
                                 stop_loss = precio_entrada + (1.5 * atr_actual)
 
