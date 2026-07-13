@@ -10,6 +10,7 @@ from sb3_contrib import RecurrentPPO
 from procesar_datos import procesar_datos_smc
 import threading
 from dotenv import load_dotenv
+import MetaTrader5 as mt5  # AÑADIDO: Para consultar el balance real de la cuenta
 
 # Importamos nuestro inyector de MetaTrader 5
 import puente_mt5
@@ -28,7 +29,7 @@ MT5_SERVER = os.getenv("MT5_SERVER")
 
 SIMBOLO_BINANCE = "BTC/USDT"  # Para descargar datos
 SIMBOLO_MT5 = "BTCUSD"  # Para enviar órdenes al broker
-VOLUMEN_LOTES = 0.01  # Lotes para la prueba Demo
+RIESGO_POR_TRADE = 0.01  # REGLA FTMO: Arriesgar el 1% de la cuenta por operación
 
 ARCHIVO_HISTORIAL = "historial_trades.csv"
 ARCHIVO_ESTADO = "estado_posicion.json"
@@ -129,7 +130,7 @@ def enviar_estadisticas():
         rendimiento_total = df["Porcentaje_Neto"].sum()
 
         reporte = (
-            f"📈 --- REPORTE DE RENDIMIENTO V8 (LSTM + MT5) --- 📈\n\n"
+            f"📈 --- REPORTE DE RENDIMIENTO V9.3 --- 📈\n\n"
             f"🔄 Operaciones Totales: {total_trades}\n"
             f"✅ Operaciones Ganadas: {ganados}\n"
             f"❌ Operaciones Perdidas: {perdidos}\n"
@@ -216,7 +217,7 @@ def ejecutar_bot_en_vivo():
     global posicion_abierta, precio_entrada, take_profit, stop_loss
     global estado_lstm, inicio_episodio
 
-    print(f"--- BOT QUANT V8.2 (Puro LSTM Direccional + MT5) ---")
+    print(f"--- BOT QUANT V9.3 (Lotaje Dinámico 1% + Puro LSTM + MT5) ---")
     cargar_estado_seguro()
 
     # CONEXIÓN A METATRADER 5
@@ -228,9 +229,7 @@ def ejecutar_bot_en_vivo():
         enviar_mensaje_telegram("❌ CRÍTICO: El bot no pudo conectar con MetaTrader 5.")
         return
 
-    enviar_mensaje_telegram(
-        "🛡️ Sistema V8.2 Operativo (Sin filtro Macro). Conectado a MT5 ✅"
-    )
+    enviar_mensaje_telegram("🛡️ Sistema V9.3 Operativo. Gestión FTMO al 1% activada ✅")
 
     try:
         modelo = RecurrentPPO.load("modelo_smc_v8_lstm_agresivo")
@@ -245,7 +244,9 @@ def ejecutar_bot_en_vivo():
     while True:
         try:
             velas_15m = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "15m", limit=100)
-            velas_1h = exchange.fetch_ohlcv(SIMBOLO_BINANCE, "1h", limit=250)
+            velas_1h = exchange.fetch_ohlcv(
+                SIMBOLO_BINANCE, "1h", limit=100
+            )  # Limit 100 ya que no usamos EMAs largas
 
             df_15m = pd.DataFrame(
                 velas_15m,
@@ -363,18 +364,30 @@ def ejecutar_bot_en_vivo():
                                 take_profit = precio_entrada + (3.0 * atr_actual)
                                 stop_loss = precio_entrada - (1.5 * atr_actual)
 
+                                # --- GESTIÓN DE RIESGO INSTITUCIONAL (Dynamic Position Sizing) ---
+                                cuenta_mt5 = mt5.account_info()
+                                balance = cuenta_mt5.balance if cuenta_mt5 else 20000.0
+                                riesgo_usd = balance * RIESGO_POR_TRADE
+                                distancia_sl = abs(precio_entrada - stop_loss)
+
+                                # Calculamos los lotes exactos para perder solo el 1%
+                                volumen_lotes = round(riesgo_usd / distancia_sl, 2)
+                                volumen_lotes = max(
+                                    0.01, min(volumen_lotes, 5.0)
+                                )  # Límites de seguridad del broker
+
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
                                     SIMBOLO_MT5,
                                     "COMPRA",
-                                    VOLUMEN_LOTES,
+                                    volumen_lotes,
                                     stop_loss,
                                     take_profit,
                                 )
 
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🟢 [COMPRA MT5]\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
+                                    f"🟢 [COMPRA MT5]\nLotes: {volumen_lotes} (Riesgo 1%: ${riesgo_usd:.0f})\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
                                 )
 
                         elif accion == 2:
@@ -394,18 +407,30 @@ def ejecutar_bot_en_vivo():
                                 take_profit = precio_entrada - (3.0 * atr_actual)
                                 stop_loss = precio_entrada + (1.5 * atr_actual)
 
+                                # --- GESTIÓN DE RIESGO INSTITUCIONAL (Dynamic Position Sizing) ---
+                                cuenta_mt5 = mt5.account_info()
+                                balance = cuenta_mt5.balance if cuenta_mt5 else 20000.0
+                                riesgo_usd = balance * RIESGO_POR_TRADE
+                                distancia_sl = abs(precio_entrada - stop_loss)
+
+                                # Calculamos los lotes exactos para perder solo el 1%
+                                volumen_lotes = round(riesgo_usd / distancia_sl, 2)
+                                volumen_lotes = max(
+                                    0.01, min(volumen_lotes, 5.0)
+                                )  # Límites de seguridad del broker
+
                                 # INYECCIÓN A METATRADER 5
                                 ticket = puente_mt5.abrir_orden(
                                     SIMBOLO_MT5,
                                     "VENTA",
-                                    VOLUMEN_LOTES,
+                                    volumen_lotes,
                                     stop_loss,
                                     take_profit,
                                 )
 
                                 guardar_estado_seguro()
                                 enviar_mensaje_telegram(
-                                    f"🔴 [VENTA MT5]\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
+                                    f"🔴 [VENTA MT5]\nLotes: {volumen_lotes} (Riesgo 1%: ${riesgo_usd:.0f})\nTicket: {ticket}\nEntrada: ${precio_entrada}\n🎯 TP: ${take_profit:.2f}\n🛡️ SL: ${stop_loss:.2f}"
                                 )
 
                     if accion == 0:
