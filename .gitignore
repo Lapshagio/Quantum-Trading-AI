@@ -13,3 +13,32 @@ __pycache__/
 *.zip
 *.pkl
 datasets/
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# --- IDEs y Editores ---
+.vscode/
+.idea/
+
+# --- Logs y Base de datos locales ---
+*.log
+bot_quant.log
+*.sqlite3
+
+# --- Datos Históricos y Modelos (Archivos pesados) ---
+*.csv
+*.parquet
+*.pkl
+*.h5
+# Ignorar la carpeta donde guardas los modelos entrenados
+modelos/
+
+# --- MetaTrader 5 (si copias archivos de terminal aquí) ---
+*.set
